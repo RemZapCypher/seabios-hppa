@@ -1256,13 +1256,11 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     if (disk_op.count > maxcount)
                         disk_op.count = maxcount;
                     disk_op.lba = (ARG5 * ((u64)FW_BLOCKSIZE / disk_op.drive_fl->blksize));
-                } else {
+                } else if (option == ENTRY_IO_BOOTIN) {
                     // read one block at least.
                     if (ARG7 && (ARG7 < disk_op.drive_fl->blksize))
                         ARG7 = disk_op.drive_fl->blksize;
-                    // limit transfer size based on scsi controller capability
-                    if (ARG7 > disk_op.drive_fl->max_bytes_transfer)
-                        ARG7 = disk_op.drive_fl->max_bytes_transfer;
+
                     /* reqsize must be multiple of 2K */
                     if (ARG7 & (FW_BLOCKSIZE-1))
                         return PDC_INVALID_ARG;
@@ -1271,6 +1269,50 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     /* medium start must be 2K aligned */
                     if (ARG5 & (FW_BLOCKSIZE-1))
                         return PDC_INVALID_ARG;
+                    unsigned long total_bytes_requested = ARG7;
+                    unsigned long total_bytes_read = 0;
+                    unsigned long current_lba = ARG5 / disk_op.drive_fl->blksize;
+                    unsigned char *current_buf = (unsigned char *)ARG6;
+
+                    while (total_bytes_read < total_bytes_requested) {
+                        unsigned long bytes_remaining = total_bytes_requested - total_bytes_read;
+                        unsigned long bytes_this_read = bytes_remaining;
+
+                        if (bytes_this_read > disk_op.drive_fl->max_bytes_transfer)
+                            bytes_this_read = disk_op.drive_fl->max_bytes_transfer;
+
+                        disk_op.buf_fl = current_buf;
+                        disk_op.count = bytes_this_read / disk_op.drive_fl->blksize;
+                        disk_op.lba = current_lba;
+
+
+                        ret = process_op(&disk_op);
+                        if (ret) {
+                            return PDC_ERROR;
+                        }
+
+                        unsigned long bytes_read = disk_op.count * disk_op.drive_fl->blksize;
+                        total_bytes_read += bytes_read;
+                        current_lba += disk_op.count;
+                        current_buf += bytes_read;
+                    }
+
+                    result[0] = total_bytes_read;
+
+                    if (total_bytes_read > 0) {
+                        flush_data_cache((char *)ARG6, total_bytes_read);
+                        flush_data_cache((char *)0x0, 1024*1024);  /* Also flush first 1MB */
+                    }
+
+                    return PDC_OK;
+                } else {
+                    if (ARG7 && (ARG7 < disk_op.drive_fl->blksize))
+                        ARG7 = disk_op.drive_fl->blksize;
+                    if (ARG7 & (FW_BLOCKSIZE-1))
+                        return PDC_INVALID_ARG;
+                    if (ARG5 & (FW_BLOCKSIZE-1))
+                        return PDC_INVALID_ARG;
+
                     disk_op.count = (ARG7 / disk_op.drive_fl->blksize);
                     disk_op.lba = (ARG5 / disk_op.drive_fl->blksize);
                 }
@@ -1281,7 +1323,12 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     result[0] = disk_op.count * disk_op.drive_fl->blksize; /* return bytes */
                 else
                     result[0] = (disk_op.count * (u64)disk_op.drive_fl->blksize) / FW_BLOCKSIZE; /* return blocks */
-                // printf("\nBOOT IO result %d, requested %d, read %ld\n", ret, ARG7, result[0]);
+
+                if (ret == 0 && disk_op.command == CMD_READ && disk_op.buf_fl) {
+                    unsigned long size = disk_op.count * disk_op.drive_fl->blksize;
+                    flush_data_cache((char *)disk_op.buf_fl, size);
+                }
+
                 if (ret)
                     return PDC_ERROR;
                 return PDC_OK;
