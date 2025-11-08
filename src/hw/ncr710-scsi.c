@@ -23,6 +23,8 @@
 #include "string.h" // memset
 #include "util.h" // usleep
 
+extern void flush_data_cache(char *start, size_t length);
+
 #define ENABLE_DEBUG 0
 #if ENABLE_DEBUG
 #define DBG(x)          x
@@ -84,25 +86,24 @@ ncr710_reset(u32 iobase)
 int
 ncr710_scsi_process_op(struct disk_op_s *op)
 {
-    if (!CONFIG_NCR710_SCSI)
+    if (!CONFIG_NCR710_SCSI) {
         return DISK_RET_EBADTRACK;
+    }
     struct ncr_lun_s *llun_gf =
         container_of(op->drive_fl, struct ncr_lun_s, drive);
     u16 target = GET_GLOBALFLAT(llun_gf->target);
-#if ENABLE_DEBUG
-    u16 lun = GET_GLOBALFLAT(llun_gf->lun);
-#endif
     u8 cdbcmd[16];
     int blocksize = scsi_fill_cmd(op, cdbcmd, sizeof(cdbcmd));
-    if (blocksize < 0)
+    if (blocksize < 0) {
         return default_process_op(op);
+    }
     u32 iobase = GET_GLOBALFLAT(llun_gf->iobase);
     u32 dma = ((scsi_is_read(op) ? 0x01000000 : 0x00000000) |
                (op->count * blocksize));
     u8 status = 0xff;
     u8 msgin = 0xff;
 
-    u32 script[] = {
+    u32 script[12] __attribute__((aligned(4))) = {
         0x40000000 | (1 << target) << 16, /* SELECT target */
         0x00000000,
         0x02000010,                        /* Send CDB (16 bytes) */
@@ -117,13 +118,20 @@ ncr710_scsi_process_op(struct disk_op_s *op)
         0x00000401,
     };
     u32 dsp = (u32)MAKE_FLATPTR(GET_SEG(SS), &script);
-
+    flush_data_cache((char *)&script, sizeof(script));
+    flush_data_cache((char *)cdbcmd, sizeof(cdbcmd));
+    flush_data_cache((char *)&status, sizeof(status));
+    flush_data_cache((char *)&msgin, sizeof(msgin));
+    if (op->buf_fl && op->count * blocksize > 0) {
+        /* For write operations, flush the data buffer */
+        if (!scsi_is_read(op)) {
+            flush_data_cache((char *)op->buf_fl, op->count * blocksize);
+        }
+    }
     NCR_WRITE_REG(iobase, NCR_REG_DSP0, dsp & 0xff);
     NCR_WRITE_REG(iobase, NCR_REG_DSP1, (dsp >> 8) & 0xff);
     NCR_WRITE_REG(iobase, NCR_REG_DSP2, (dsp >> 16) & 0xff);
     NCR_WRITE_REG(iobase, NCR_REG_DSP3, (dsp >> 24) & 0xff);
-
-    DBG(printf("SEABIOS: Script started, DSP=0x%08x\n", dsp));
 
     int poll_count = 0;
     for (;;) {
@@ -142,28 +150,24 @@ ncr710_scsi_process_op(struct disk_op_s *op)
             u32 dsps = (dsps_bytes[3] << 24) | (dsps_bytes[2] << 16) |
                        (dsps_bytes[1] << 8) | dsps_bytes[0];
 
-            DBG(printf("SEABIOS: SCRIPTS interrupt (poll_count=%d), DSTAT=0x%02x, DSPS=0x%08x\n", poll_count, dstat, dsps));
-
             if (dsps == 0x00000401) {
-                DBG(printf("SEABIOS: Command completed successfully! (target=%d, lun=%d)\n", target, lun));
+                flush_data_cache((char *)&status, sizeof(status));
+                flush_data_cache((char *)&msgin, sizeof(msgin));
+                if (scsi_is_read(op) && op->buf_fl && op->count * blocksize > 0) {
+                    flush_data_cache((char *)op->buf_fl, op->count * blocksize);
+                }
                 return DISK_RET_SUCCESS;
             } else {
-                DBG(printf("SEABIOS: Unexpected SCRIPTS interrupt code 0x%08x\n", dsps));
                 goto fail;
             }
         }
 
         if (istat & 0x02) {  /* SIP bit - SCSI interrupt pending */
-            DBG(printf("SEABIOS: SCSI interrupt (poll_count=%d), ISTAT=0x%02x, SSTAT0=0x%02x, SSTAT1=0x%02x\n",
-                poll_count, istat, sstat0, sstat1));
-
             if (sstat0 & 0x80) {  /* MA - Message Acknowledge / Phase Mismatch */
-                DBG(printf("SEABIOS: Phase mismatch detected (poll_count=%d), command may have failed\n", poll_count));
                 goto fail;
             }
 
             if (sstat0 & 0x04) {  /* UDC - Unexpected Disconnect */
-                DBG(printf("SEABIOS: Device disconnected (poll_count=%d)\n", poll_count));
                 return DISK_RET_SUCCESS;
             }
         }
@@ -172,16 +176,13 @@ ncr710_scsi_process_op(struct disk_op_s *op)
             goto fail;
         }
         if (sstat0 & ~0xA0) {
-            DBG(printf("SEABIOS: SCSI error, SSTAT0=0x%02x, SSTAT1=0x%02x\n", sstat0, sstat1));
             goto fail;
         }
         if (sstat1 & 0x1B) {
-            DBG(printf("SEABIOS: SCSI error, SSTAT0=0x%02x, SSTAT1=0x%02x\n", sstat0, sstat1));
             goto fail;
         }
 
         if (dstat & 0x70) {
-            DBG(printf("SEABIOS: DMA error, DSTAT=0x%02x\n", dstat));
             goto fail;
         }
 
@@ -195,7 +196,6 @@ fail:
 static int
 ncr710_detect_controller(u32 iobase)
 {
-    DBG(printf("SEABIOS: Starting controller detection at 0x%x\n", iobase));
     // TEMP register is at 0x1C - using direct byte access with XOR
     u32 temp_reg_base = 0x1C;
 
@@ -204,8 +204,6 @@ ncr710_detect_controller(u32 iobase)
     original_temp[1] = NCR_READ_REG(iobase, temp_reg_base + 1);
     original_temp[2] = NCR_READ_REG(iobase, temp_reg_base + 2);
     original_temp[3] = NCR_READ_REG(iobase, temp_reg_base + 3);
-    DBG(printf("SEABIOS: Original TEMP register: 0x%02x%02x%02x%02x\n",
-           original_temp[3], original_temp[2], original_temp[1], original_temp[0]));
 
     NCR_WRITE_REG(iobase, temp_reg_base + 0, 0x12);
     NCR_WRITE_REG(iobase, temp_reg_base + 1, 0x34);
@@ -217,8 +215,6 @@ ncr710_detect_controller(u32 iobase)
     read_back[1] = NCR_READ_REG(iobase, temp_reg_base + 1);
     read_back[2] = NCR_READ_REG(iobase, temp_reg_base + 2);
     read_back[3] = NCR_READ_REG(iobase, temp_reg_base + 3);
-    DBG(printf("SEABIOS: TEMP test - wrote 0x12345678, read bytes: 0x%02x 0x%02x 0x%02x 0x%02x\n",
-           read_back[0], read_back[1], read_back[2], read_back[3]));
 
     NCR_WRITE_REG(iobase, temp_reg_base + 0, original_temp[0]);
     NCR_WRITE_REG(iobase, temp_reg_base + 1, original_temp[1]);
@@ -227,10 +223,8 @@ ncr710_detect_controller(u32 iobase)
 
     if (read_back[0] == 0x12 && read_back[1] == 0x34 &&
         read_back[2] == 0x56 && read_back[3] == 0x78) {
-        DBG(printf("SEABIOS: Controller detected successfully at 0x%x\n", iobase));
         return 0;
     }
-    DBG(printf("SEABIOS: Controller detection failed at 0x%x\n", iobase));
     return -1;
 }
 
@@ -272,37 +266,27 @@ ncr710_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
 static void
 ncr710_scsi_scan_target(u32 iobase, u8 target)
 {
-    DBG(printf("SEABIOS: Starting scan of target %d\n", target));
     struct ncr_lun_s nlun0;
     ncr710_scsi_init_lun(&nlun0, iobase, target, 0);
 
-    DBG(printf("SEABIOS: Trying scsi_rep_luns_scan for target %d\n", target));
     if (scsi_rep_luns_scan(&nlun0.drive, ncr710_scsi_add_lun) < 0) {
-        DBG(printf("SEABIOS: scsi_rep_luns_scan failed, trying scsi_sequential_scan for target %d\n", target));
         scsi_sequential_scan(&nlun0.drive, 8, ncr710_scsi_add_lun);
     }
-    DBG(printf("SEABIOS: Finished scanning target %d\n", target));
 }
 
 static void
 init_ncr710_scsi(u32 base_addr)
 {
     u32 iobase = base_addr + LASI_SCSI_CORE_OFFSET;
-    DBG(printf("SEABIOS: Base addr=0x%x, Core offset=0x%x, IO base=0x%x\n",
-            base_addr, LASI_SCSI_CORE_OFFSET, iobase));
-
     ncr710_reset(iobase);
 
     if (ncr710_detect_controller(iobase) < 0) {
-        DBG(printf("SEABIOS: Controller not found at 0x%x\n", iobase));
         return;
     }
 
-    DBG(printf("SEABIOS: Found controller at 0x%x\n", iobase));
 
     int i;
     for (i = 0; i < 7; i++) {
-        DBG(printf("SEABIOS: Scanning target %d\n", i));
         ncr710_scsi_scan_target(iobase, i);
     }
 }
@@ -311,13 +295,23 @@ void
 ncr710_scsi_setup(void)
 {
     ASSERT32FLAT();
-    if (!CONFIG_NCR710_SCSI || !runningOnQEMU())
+    if (!CONFIG_NCR710_SCSI) {
         return;
-    if (!CONFIG_PARISC || sizeof(long) != 4 || !lasi_hpa)
+    }
+
+    if (!runningOnQEMU()) {
         return;
-    /* check for PARISC device ID: (HPHW_FIO << 24) | LASI_710_SVERSION */
-    if (CONFIG_PARISC && inl(lasi_hpa + 0x6000) != 0x5000082)
+    }
+
+    if (!CONFIG_PARISC || sizeof(long) != 4 || !lasi_hpa) {
         return;
-    DBG(printf("Initializing NCR 53c710 SCSI controllers\n"));
+    }
+
+    u32 device_id = inl(lasi_hpa + 0x6000);
+
+    if (device_id != 0x5000082) {
+        return;
+    }
+
     init_ncr710_scsi(lasi_hpa + 0x6000);
 }

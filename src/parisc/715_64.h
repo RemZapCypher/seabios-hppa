@@ -50,7 +50,7 @@
 
 #define HPA_f8000000_715_DESCRIPTION "Mirage Jr GSC Builtin Graphics"
 static struct pdc_system_map_mod_info mod_info_hpa_f8000000_715 = {
-	.mod_addr = 0x52,
+	.mod_addr = 0xf8000000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -77,33 +77,33 @@ static struct pdc_iodc iodc_data_hpa_f8000000_715 = {
 
 #define HPA_f0100000_DESCRIPTION "Mirage Jr Core BA"
 static struct pdc_system_map_mod_info mod_info_hpa_f0100000 = {
-	.mod_addr = 0x45,
-	.mod_pgs = 0x0,
-	.add_addrs = 0x0,
+	.mod_addr = 0xf0100000,
+	.mod_pgs = 0x1,
+	.add_addrs = 0x2,
 };
 static struct pdc_module_path mod_path_hpa_f0100000 = {
-	.path = { .flags = 0xff, .bc = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff }, .mod = 0x2 }
+	.path = { .flags = 0x0, .bc = { 0xff, 0xff, 0xff, 0xff, 0xff, 0x8 }, .mod = 0x10 }
 };
 static struct pdc_iodc iodc_data_hpa_f0100000 = {
-	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion_model = 0x0003,
+	.hversion = 0x00d0,
 	.spa = 0x0080,
-	.type = 0x008b,
+	.type = 0x004b,
 	.sversion_rev = 0x0000,
 	.sversion_model = 0x0040,
 	.sversion_opt = 0x0080,
 	.rev = 0x0000,
 	.dep = 0x0000,
 	.features = 0x0000,
-	.checksum = 0xfbe5,
+	.checksum = 0x0000,
 	.length = 0x0000,
 };
-#define HPA_f0100000_num_addr 0
-#define HPA_f0100000_add_addr 0
+#define HPA_f0100000_num_addr 2
+#define HPA_f0100000_add_addr 0xf010c000, 0xf0000000,
 
 #define HPA_f0106000_DESCRIPTION "Mirage Jr Core SCSI"
 static struct pdc_system_map_mod_info mod_info_hpa_f0106000 = {
-	.mod_addr = 0x47,
+	.mod_addr = 0xf0106000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -112,11 +112,11 @@ static struct pdc_module_path mod_path_hpa_f0106000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0106000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x008a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x0041,
+	.sversion_model = 0x0082,
 	.sversion_opt = 0x0000,
 	.rev = 0x0001,
 	.dep = 0x0000,
@@ -130,7 +130,7 @@ static struct pdc_iodc iodc_data_hpa_f0106000 = {
 
 #define HPA_f0107000_DESCRIPTION "Mirage Jr Core LAN (802.3)"
 static struct pdc_system_map_mod_info mod_info_hpa_f0107000 = {
-	.mod_addr = 0x4e,
+	.mod_addr = 0xf0107000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -139,11 +139,11 @@ static struct pdc_module_path mod_path_hpa_f0107000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0107000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x008a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x0045,
+	.sversion_model = 0x008a,
 	.sversion_opt = 0x0000,
 	.rev = 0x0002,
 	.dep = 0x0000,
@@ -157,7 +157,7 @@ static struct pdc_iodc iodc_data_hpa_f0107000 = {
 
 #define HPA_f0105000_DESCRIPTION "Mirage Jr Core RS-232"
 static struct pdc_system_map_mod_info mod_info_hpa_f0105000 = {
-	.mod_addr = 0x49,
+	.mod_addr = 0xf0105000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -166,11 +166,11 @@ static struct pdc_module_path mod_path_hpa_f0105000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0105000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x008a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x0046,
+	.sversion_model = 0x008c,
 	.sversion_opt = 0x0000,
 	.rev = 0x0001,
 	.dep = 0x0000,
@@ -184,7 +184,7 @@ static struct pdc_iodc iodc_data_hpa_f0105000 = {
 
 #define HPA_f0102000_DESCRIPTION "Mirage Jr Core Centronics"
 static struct pdc_system_map_mod_info mod_info_hpa_f0102000 = {
-	.mod_addr = 0x4d,
+	.mod_addr = 0xf0102000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -193,11 +193,11 @@ static struct pdc_module_path mod_path_hpa_f0102000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0102000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x000a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x003a,
+	.sversion_model = 0x0074,
 	.sversion_opt = 0x0000,
 	.rev = 0x00ff,
 	.dep = 0x00ff,
@@ -211,7 +211,7 @@ static struct pdc_iodc iodc_data_hpa_f0102000 = {
 
 #define HPA_f0104000_DESCRIPTION "Mirage Jr Audio"
 static struct pdc_system_map_mod_info mod_info_hpa_f0104000 = {
-	.mod_addr = 0x43,
+	.mod_addr = 0xf0104000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -220,12 +220,12 @@ static struct pdc_module_path mod_path_hpa_f0104000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0104000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x000a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x003d,
-	.sversion_opt = 0x0080,
+	.sversion_model = 0x007b,
+	.sversion_opt = 0x0000,
 	.rev = 0x00ff,
 	.dep = 0x00ff,
 	.features = 0x00ff,
@@ -238,7 +238,7 @@ static struct pdc_iodc iodc_data_hpa_f0104000 = {
 
 #define HPA_f010a000_DESCRIPTION "Mirage Jr Core PC Floppy"
 static struct pdc_system_map_mod_info mod_info_hpa_f010a000 = {
-	.mod_addr = 0x4c,
+	.mod_addr = 0xf010a000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -247,12 +247,12 @@ static struct pdc_module_path mod_path_hpa_f010a000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f010a000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
-	.spa = 0x0080,
+	.hversion = 0x0028,
+	.spa = 0x0000,
 	.type = 0x000a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x0041,
-	.sversion_opt = 0x0080,
+	.sversion_model = 0x0083,
+	.sversion_opt = 0x0000,
 	.rev = 0x00ff,
 	.dep = 0x00ff,
 	.features = 0x00ff,
@@ -265,7 +265,7 @@ static struct pdc_iodc iodc_data_hpa_f010a000 = {
 
 #define HPA_f0108000_DESCRIPTION "Mirage Jr Core PS/2 Port"
 static struct pdc_system_map_mod_info mod_info_hpa_f0108000 = {
-	.mod_addr = 0x4c,
+	.mod_addr = 0xf0108000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -274,11 +274,11 @@ static struct pdc_module_path mod_path_hpa_f0108000 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0108000 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x008a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x0042,
+	.sversion_model = 0x0084,
 	.sversion_opt = 0x0000,
 	.rev = 0x0001,
 	.dep = 0x0000,
@@ -292,7 +292,7 @@ static struct pdc_iodc iodc_data_hpa_f0108000 = {
 
 #define HPA_f0108100_DESCRIPTION "Mirage Jr Core PS/2 Port"
 static struct pdc_system_map_mod_info mod_info_hpa_f0108100 = {
-	.mod_addr = 0x4c,
+	.mod_addr = 0xf0108100,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -301,11 +301,11 @@ static struct pdc_module_path mod_path_hpa_f0108100 = {
 };
 static struct pdc_iodc iodc_data_hpa_f0108100 = {
 	.hversion_model = 0x0002,
-	.hversion = 0x0080,
+	.hversion = 0x0028,
 	.spa = 0x0080,
 	.type = 0x008a,
 	.sversion_rev = 0x0000,
-	.sversion_model = 0x0042,
+	.sversion_model = 0x0084,
 	.sversion_opt = 0x0000,
 	.rev = 0x0001,
 	.dep = 0x0000,
@@ -319,7 +319,7 @@ static struct pdc_iodc iodc_data_hpa_f0108100 = {
 
 #define HPA_fc000000_DESCRIPTION "Mirage Jr Wax EISA BA"
 static struct pdc_system_map_mod_info mod_info_hpa_fc000000 = {
-	.mod_addr = 0x49,
+	.mod_addr = 0xfc000000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -346,7 +346,7 @@ static struct pdc_iodc iodc_data_hpa_fc000000 = {
 
 #define HPA_f0200000_DESCRIPTION "Mirage Jr Wax BA"
 static struct pdc_system_map_mod_info mod_info_hpa_f0200000 = {
-	.mod_addr = 0x44,
+	.mod_addr = 0xf0200000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -372,7 +372,7 @@ static struct pdc_iodc iodc_data_hpa_f0200000 = {
 
 #define HPA_f0201000_DESCRIPTION "Mirage Jr Wax HIL"
 static struct pdc_system_map_mod_info mod_info_hpa_f0201000 = {
-	.mod_addr = 0x45,
+	.mod_addr = 0xf0201000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -399,7 +399,7 @@ static struct pdc_iodc iodc_data_hpa_f0201000 = {
 
 #define HPA_f0202000_DESCRIPTION "Mirage Jr Wax RS-232"
 static struct pdc_system_map_mod_info mod_info_hpa_f0202000 = {
-	.mod_addr = 0x48,
+	.mod_addr = 0xf0202000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -426,7 +426,7 @@ static struct pdc_iodc iodc_data_hpa_f0202000 = {
 
 #define HPA_fffbe000_DESCRIPTION "Mirage Jr (715/64)"
 static struct pdc_system_map_mod_info mod_info_hpa_fffbe000 = {
-	.mod_addr = 0x46,
+	.mod_addr = 0xfffbe000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -453,7 +453,7 @@ static struct pdc_iodc iodc_data_hpa_fffbe000 = {
 
 #define HPA_fffbf000_DESCRIPTION "Memory"
 static struct pdc_system_map_mod_info mod_info_hpa_fffbf000_715 = {
-	.mod_addr = 0x3a,
+	.mod_addr = 0xfffbf000,
 	.mod_pgs = 0x0,
 	.add_addrs = 0x0,
 };
@@ -516,13 +516,13 @@ static struct pdc_iodc iodc_data_hpa_fffbf000_715 = {
 		.mod_path = &mod_path_hpa_f0102000,\
 		.num_addr = HPA_f0102000_num_addr,\
 		.add_addr = { HPA_f0102000_add_addr } },\
-	{	.hpa = 0xf0104000 + HPA_DISABLED_DEVICE,\
+	{	.hpa = 0xf0104000,\
 		.iodc = &iodc_data_hpa_f0104000,\
 		.mod_info = &mod_info_hpa_f0104000,\
 		.mod_path = &mod_path_hpa_f0104000,\
 		.num_addr = HPA_f0104000_num_addr,\
 		.add_addr = { HPA_f0104000_add_addr } },\
-	{	.hpa = 0xf010a000 + HPA_DISABLED_DEVICE,\
+	{	.hpa = 0xf010a000,\
 		.iodc = &iodc_data_hpa_f010a000,\
 		.mod_info = &mod_info_hpa_f010a000,\
 		.mod_path = &mod_path_hpa_f010a000,\

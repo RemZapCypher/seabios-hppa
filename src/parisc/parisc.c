@@ -1256,13 +1256,12 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     if (disk_op.count > maxcount)
                         disk_op.count = maxcount;
                     disk_op.lba = (ARG5 * ((u64)FW_BLOCKSIZE / disk_op.drive_fl->blksize));
-                } else {
+                } else if (option == ENTRY_IO_BOOTIN) {
+                    /* BOOTIN: Handle reads larger than max_bytes_transfer by multi-chunking */
                     // read one block at least.
                     if (ARG7 && (ARG7 < disk_op.drive_fl->blksize))
                         ARG7 = disk_op.drive_fl->blksize;
-                    // limit transfer size based on scsi controller capability
-                    if (ARG7 > disk_op.drive_fl->max_bytes_transfer)
-                        ARG7 = disk_op.drive_fl->max_bytes_transfer;
+
                     /* reqsize must be multiple of 2K */
                     if (ARG7 & (FW_BLOCKSIZE-1))
                         return PDC_INVALID_ARG;
@@ -1271,6 +1270,48 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     /* medium start must be 2K aligned */
                     if (ARG5 & (FW_BLOCKSIZE-1))
                         return PDC_INVALID_ARG;
+
+                    unsigned long total_bytes_requested = ARG7;
+                    unsigned long total_bytes_read = 0;
+                    unsigned long current_lba = ARG5 / disk_op.drive_fl->blksize;
+                    unsigned char *current_buf = (unsigned char *)ARG6;
+                    while (total_bytes_read < total_bytes_requested) {
+                        unsigned long bytes_remaining = total_bytes_requested - total_bytes_read;
+                        unsigned long bytes_this_read = bytes_remaining;
+
+                        if (bytes_this_read > disk_op.drive_fl->max_bytes_transfer)
+                            bytes_this_read = disk_op.drive_fl->max_bytes_transfer;
+
+                        disk_op.buf_fl = current_buf;
+                        disk_op.count = bytes_this_read / disk_op.drive_fl->blksize;
+                        disk_op.lba = current_lba;
+                        ret = process_op(&disk_op);
+                        if (ret) {
+                            return PDC_ERROR;
+                        }
+
+                        unsigned long bytes_read = disk_op.count * disk_op.drive_fl->blksize;
+                        total_bytes_read += bytes_read;
+                        current_lba += disk_op.count;
+                        current_buf += bytes_read;
+                    }
+
+                    result[0] = total_bytes_read;
+                    if (total_bytes_read > 0) {
+                        flush_data_cache((char *)ARG6, total_bytes_read);
+                        flush_data_cache((char *)0x0, 1024*1024);  /* Also flush first 1MB */
+                    }
+                    return PDC_OK;
+                } else {
+                    /* BOOTOUT: Single write operation */
+                    // read one block at least.
+                    if (ARG7 && (ARG7 < disk_op.drive_fl->blksize))
+                        ARG7 = disk_op.drive_fl->blksize;
+                    if (ARG7 & (FW_BLOCKSIZE-1))
+                        return PDC_INVALID_ARG;
+                    if (ARG5 & (FW_BLOCKSIZE-1))
+                        return PDC_INVALID_ARG;
+
                     disk_op.count = (ARG7 / disk_op.drive_fl->blksize);
                     disk_op.lba = (ARG5 / disk_op.drive_fl->blksize);
                 }
@@ -1281,6 +1322,52 @@ int __VISIBLE parisc_iodc_ENTRY_IO(unsigned int *arg)
                     result[0] = disk_op.count * disk_op.drive_fl->blksize; /* return bytes */
                 else
                     result[0] = (disk_op.count * (u64)disk_op.drive_fl->blksize) / FW_BLOCKSIZE; /* return blocks */
+                if (ret == 0 && disk_op.command == CMD_READ && disk_op.buf_fl) {
+                    unsigned long size = disk_op.count * disk_op.drive_fl->blksize;
+                    flush_data_cache((char *)disk_op.buf_fl, size);
+                }
+                /* This block is disabled */
+                if (0 && ret == 0 && disk_op.command == CMD_READ && disk_op.buf_fl) {
+                    unsigned long size = disk_op.count * disk_op.drive_fl->blksize;
+                    unsigned char *buf = (unsigned char *)disk_op.buf_fl;
+                    printf("IODC: Flushing I+D cache for boot buffer at 0x%lx, size=%lu bytes\n",
+                           (unsigned long)disk_op.buf_fl, size);
+                    printf("IODC: First 32 bytes of buffer:");
+                    int i;
+                    for (i = 0; i < 32 && i < size; i++) {
+                        if (i % 16 == 0) printf("\n  %04x:", i);
+                        printf(" %02x", buf[i]);
+                    }
+                    printf("\n");
+
+                    if (size > 0x12adc + 32) {
+                        printf("IODC: Bytes at offset 0x12adc (addr 0x%lx if buf=0x3d000):",
+                               0x3d000UL + 0x12adc);
+                        for (i = 0x12adc; i < 0x12adc + 32 && i < size; i++) {
+                            if ((i - 0x12adc) % 16 == 0) printf("\n  %04x:", i);
+                            printf(" %02x", buf[i]);
+                        }
+                        printf("\n");
+                    }
+
+                    flush_data_cache((char *)disk_op.buf_fl, size);
+
+                    flush_data_cache((char *)0x0, 1024*1024);  /* Flush first 1MB */
+
+                    printf("IODC: Cache flush complete\n");
+
+                    if ((unsigned long)disk_op.buf_fl == 0x3d000 && size == 65536) {
+                        printf("IODC: DEBUG - Checking memory at known trap location 0x4fadc:\n");
+                        unsigned char *trap_addr = (unsigned char *)0x4fadc;
+                        printf("  Memory at 0x4fadc:");
+                        int j;
+                        for (j = 0; j < 16; j++) {
+                            printf(" %02x", trap_addr[j]);
+                        }
+                        printf("\n");
+                    }
+                }
+
                 // printf("\nBOOT IO result %d, requested %d, read %ld\n", ret, ARG7, result[0]);
                 if (ret)
                     return PDC_ERROR;
@@ -2116,8 +2203,9 @@ static int pdc_system_map(unsigned long *arg)
     // dprintf(0, "\n\nSeaBIOS: Info: PDC_SYSTEM_MAP function %ld ARG3=%x ARG4=%x ARG5=%x\n", option, ARG3, ARG4, ARG5);
 
     /* old machines (715 is Snake type) do not support PDC_SYSTEM_MAP */
-    if (!is_64bit_PDC() && current_machine != &machine_B160L)
-        return PDC_BAD_OPTION;
+    /* if (!is_64bit_PDC() && current_machine != &machine_B160L)
+     * return PDC_BAD_OPTION;
+     */
 
     switch (option) {
         case PDC_FIND_MODULE:
